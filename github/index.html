@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Web Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Design-Tokens ─────────────────────────────────────────── */
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #141720;
+    --card:      #1c2030;
+    --border:    #2a2f45;
+    --accent:    #5b8dee;
+    --accent2:   #3ecf8e;
+    --warn:      #f6a623;
+    --danger:    #e74c6a;
+    --text:      #e8eaf0;
+    --muted:     #6b738f;
+    --mono:      'Space Mono', monospace;
+    --sans:      'Syne', sans-serif;
+    --radius:    10px;
+    --shadow:    0 4px 24px rgba(0,0,0,.45);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100svh;
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Grid-Hintergrund ───────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(91,141,238,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(91,141,238,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; position: relative; z-index: 1; }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    padding: 24px 0 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: grid; place-items: center;
+    font-size: 18px;
+  }
+  .logo h1 {
+    font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .logo span { color: var(--accent); }
+
+  .status-badge {
+    font-family: var(--mono);
+    font-size: .7rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(62,207,142,.12);
+    color: var(--accent2);
+    border: 1px solid rgba(62,207,142,.25);
+    white-space: nowrap;
+  }
+
+  /* ── Tabs ───────────────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 4px;
+    margin: 20px 0 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    font-family: var(--sans);
+    font-weight: 600; font-size: .85rem;
+    padding: 10px 18px;
+    background: transparent;
+    border: none; border-bottom: 2px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color .2s, border-color .2s;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  .tab-panel { display: none; padding: 24px 0; }
+  .tab-panel.active { display: block; }
+
+  /* ── Dashboard ──────────────────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: border-color .2s;
+  }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-label { font-size: .7rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  .stat-sub { font-size: .7rem; color: var(--muted); margin-top: 4px; }
+
+  /* ── Action-Bar ─────────────────────────────────────────────── */
+  .action-bar {
+    display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: var(--sans); font-weight: 600; font-size: .85rem;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    border: none; cursor: pointer;
+    transition: all .2s;
+    display: inline-flex; align-items: center; gap: 7px;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 20px rgba(91,141,238,.3);
+  }
+  .btn-primary:hover { background: #7aa5f2; box-shadow: 0 0 30px rgba(91,141,238,.5); }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-primary.loading { opacity: .7; pointer-events: none; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger-ghost {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(231,76,106,.3);
+    padding: 6px 12px; font-size: .78rem;
+  }
+  .btn-danger-ghost:hover { background: rgba(231,76,106,.1); }
+
+  .btn-success-ghost {
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid rgba(62,207,142,.3);
+    padding: 6px 12px; font-size: .78rem;
+  }
+
+  /* ── Suchergebnisse ─────────────────────────────────────────── */
+  .section-title {
+    font-size: .75rem; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .filter-row {
+    display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .filter-input {
+    font-family: var(--mono); font-size: .8rem;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    padding: 8px 12px; flex: 1; min-width: 160px;
+    outline: none; transition: border-color .2s;
+  }
+  .filter-input:focus { border-color: var(--accent); }
+
+  .filter-select {
+    font-family: var(--sans); font-size: .8rem;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    padding: 8px 12px;
+    outline: none; cursor: pointer;
+  }
+
+  #results-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .result-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    align-items: start;
+    transition: border-color .2s, transform .15s;
+    animation: fadeIn .3s ease;
+  }
+  .result-item:hover { border-color: var(--accent); transform: translateX(2px); }
+  .result-item.is-new {
+    border-left: 3px solid var(--accent2);
+    background: linear-gradient(90deg, rgba(62,207,142,.06), var(--card));
+  }
+
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+
+  .result-title {
+    font-weight: 600; font-size: .9rem; color: var(--text);
+    word-break: break-word;
+  }
+  .result-title a { color: inherit; text-decoration: none; }
+  .result-title a:hover { color: var(--accent); }
+  .result-meta {
+    font-family: var(--mono); font-size: .7rem; color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px;
+  }
+  .tag-new {
+    font-size: .65rem; font-weight: 700;
+    background: rgba(62,207,142,.15); color: var(--accent2);
+    border: 1px solid rgba(62,207,142,.3);
+    padding: 2px 7px; border-radius: 20px;
+    letter-spacing: .05em;
+  }
+  .result-actions { align-self: center; }
+
+  .empty-state {
+    text-align: center; padding: 48px 20px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty-state p { font-size: .9rem; }
+
+  /* ── Toast ──────────────────────────────────────────────────── */
+  #toast-container {
+    position: fixed; bottom: 24px; right: 16px;
+    z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    font-family: var(--mono); font-size: .78rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 18px; border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    pointer-events: auto;
+    animation: slideUp .3s ease;
+    max-width: 280px;
+  }
+  .toast.success { border-color: var(--accent2); color: var(--accent2); }
+  .toast.error   { border-color: var(--danger);  color: var(--danger);  }
+  .toast.info    { border-color: var(--accent);  color: var(--accent);  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+
+  /* ── Einstellungen / Token ──────────────────────────────────── */
+  .settings-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .settings-card h3 {
+    font-size: .9rem; font-weight: 600; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .form-row { margin-bottom: 14px; }
+  .form-label {
+    display: block; font-size: .75rem; color: var(--muted);
+    margin-bottom: 6px; letter-spacing: .04em;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    font-family: var(--mono); font-size: .82rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .2s;
+    -webkit-appearance: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-hint { font-size: .72rem; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+
+  .form-grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  @media (max-width: 520px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── Sites-Tabelle ──────────────────────────────────────────── */
+  .sites-table-wrap { overflow-x: auto; }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: .82rem;
+  }
+  th {
+    text-align: left; font-size: .68rem; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 12px; border-bottom: 1px solid rgba(42,47,69,.6);
+    vertical-align: middle;
+  }
+  tr:hover td { background: rgba(91,141,238,.04); }
+  .type-badge {
+    font-family: var(--mono); font-size: .68rem;
+    padding: 3px 8px; border-radius: 20px;
+    white-space: nowrap;
+  }
+  .type-1 { background: rgba(91,141,238,.15); color: var(--accent); border: 1px solid rgba(91,141,238,.3); }
+  .type-2 { background: rgba(246,166,35,.12); color: var(--warn); border: 1px solid rgba(246,166,35,.25); }
+
+  .active-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; margin-right: 6px;
+  }
+  .active-dot.on  { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .active-dot.off { background: var(--muted); }
+
+  /* ── Run-History ────────────────────────────────────────────── */
+  .run-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 8px;
+    font-family: var(--mono); font-size: .78rem;
+  }
+  .run-item .run-time { color: var(--muted); }
+  .run-new { color: var(--accent2); font-weight: 700; }
+
+  /* ── Modal ──────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(4px);
+    z-index: 800;
+    display: none; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    width: 100%; max-width: 520px;
+    max-height: 90svh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+    animation: modalIn .25s ease;
+  }
+  @keyframes modalIn { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:none; } }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .modal-title { font-size: 1rem; font-weight: 700; }
+  .modal-close {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 1.3rem; cursor: pointer; padding: 4px;
+    line-height: 1; transition: color .2s;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+  /* ── Info-Box ───────────────────────────────────────────────── */
+  .info-box {
+    background: rgba(91,141,238,.08);
+    border: 1px solid rgba(91,141,238,.25);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: .8rem; line-height: 1.7; color: var(--text);
+    margin-bottom: 16px;
+  }
+  .info-box strong { color: var(--accent); }
+  .info-box code {
+    font-family: var(--mono); font-size: .75rem;
+    background: rgba(91,141,238,.15); padding: 1px 5px; border-radius: 4px;
+  }
+  .warn-box {
+    background: rgba(246,166,35,.08);
+    border: 1px solid rgba(246,166,35,.25);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: .8rem; line-height: 1.7; color: var(--text);
+    margin-bottom: 16px;
+  }
+  .warn-box strong { color: var(--warn); }
+
+  /* ── Scrollbar ──────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Spinner ────────────────────────────────────────────────── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  /* ── Token-Anzeige (maskiert) ───────────────────────────────── */
+  .token-display {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .token-value {
+    font-family: var(--mono); font-size: .8rem;
+    flex: 1; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 8px 12px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Toast-Container ────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── Modals ─────────────────────────────────────────────────── -->
+
+<!-- Modal: Site hinzufügen/bearbeiten -->
+<div class="modal-overlay" id="site-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="site-modal-title">Website hinzufügen</span>
+      <button class="modal-close" onclick="closeModal('site-modal')">✕</button>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Name (frei wählbar)</label>
+      <input class="form-input" id="s-name" placeholder="z. B. Forum XY – Mein Tag">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Überwachungs-Typ</label>
+      <select class="form-select" id="s-type" onchange="updateTypeHelp()">
+        <option value="1">Typ 1 – Neue Threads / Seiten suchen</option>
+        <option value="2">Typ 2 – Neue Posts in bestehendem Thread</option>
+      </select>
+    </div>
+
+    <div id="type-help" class="info-box" style="margin-top:0;margin-bottom:14px;font-size:.76rem;">
+      <strong>Typ 1:</strong> Gib die Übersichts-URL an (z. B. Forum-Startseite oder Tag-Seite).
+      Der Scraper findet alle Links und filtert nach Muster + Tags.
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">URL <span style="color:var(--danger)">*</span></label>
+      <input class="form-input" id="s-url" placeholder="https://example.com/forum/overview">
+      <div class="form-hint">Vollständige URL inkl. https://</div>
+    </div>
+
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label" id="s-pattern-label">URL-Muster / Schlüsselwort</label>
+        <input class="form-input" id="s-pattern" placeholder="z. B. /thread/ oder username">
+        <div class="form-hint" id="s-pattern-hint">Nur Links, die dieses Wort im Pfad enthalten</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Tags (komma-getrennt)</label>
+        <input class="form-input" id="s-tags" placeholder="z. B. arduino, diy">
+        <div class="form-hint">Zusatzfilter: Link-Text muss einen Tag enthalten</div>
+      </div>
+    </div>
+
+    <div id="s-selectors-row" class="form-row" style="display:none;">
+      <label class="form-label">Post-Erkennungs-Klassen (komma-getrennt)</label>
+      <input class="form-input" id="s-selectors" placeholder="post, message, reply, comment">
+      <div class="form-hint">CSS-Klassen-Fragmente, die einen einzelnen Post kennzeichnen.
+        Standard: <code>post,message,reply,comment,beitrag</code></div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Max. Ergebnisse pro Lauf</label>
+      <input class="form-input" id="s-max" type="number" value="50" min="1" max="500">
+    </div>
+
+    <div class="form-row" style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="s-active" checked style="width:16px;height:16px;cursor:pointer;">
+      <label for="s-active" style="font-size:.85rem;cursor:pointer;">Website aktiv überwachen</label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('site-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveSite()">💾 Speichern & committen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Token-Einrichtung -->
+<div class="modal-overlay" id="token-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">⚙️ GitHub-Einstellungen</span>
+      <button class="modal-close" onclick="closeModal('token-modal')">✕</button>
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠️ Wichtig:</strong> Dein PAT wird ausschließlich im
+      <code>localStorage</code> deines iPads gespeichert – er verlässt
+      nie das Gerät, wird nicht an unsere Server gesendet und
+      ist nur für direkte GitHub-API-Aufrufe nötig.
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">GitHub Personal Access Token (PAT)</label>
+      <input class="form-input" id="t-token" type="password"
+        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="form-hint">
+        Benötigte Berechtigung: <code>repo</code> (Full control of private repositories) –
+        oder <code>public_repo</code> für öffentliche Repos.<br>
+        Erstellen unter: github.com → Settings → Developer settings → Personal access tokens
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">GitHub-Benutzername</label>
+      <input class="form-input" id="t-user" placeholder="dein-github-username"
+        autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Repository-Name</label>
+      <input class="form-input" id="t-repo" placeholder="web-monitor"
+        autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('token-modal')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveSettings()">✅ Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Haupt-Layout ────────────────────────────────────────────── -->
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">👁</div>
+      <h1>Web<span>Monitor</span></h1>
+    </div>
+    <div id="header-status" class="status-badge">Lädt…</div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('results')">🔍 Ergebnisse</button>
+    <button class="tab-btn" onclick="switchTab('sites')">🌐 Websites</button>
+    <button class="tab-btn" onclick="switchTab('settings')">⚙️ Einstellungen</button>
+  </nav>
+
+  <!-- ── Tab: Dashboard ───────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-dashboard">
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Neue Einträge</div>
+        <div class="stat-value" id="stat-new">–</div>
+        <div class="stat-sub">seit letztem Lauf</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gesamt gefunden</div>
+        <div class="stat-value" id="stat-total">–</div>
+        <div class="stat-sub">kumuliert</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Websites</div>
+        <div class="stat-value" id="stat-sites">–</div>
+        <div class="stat-sub">konfiguriert</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Läufe</div>
+        <div class="stat-value" id="stat-runs">–</div>
+        <div class="stat-sub">gesamt</div>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" id="run-btn" onclick="triggerScraper()">
+        <span id="run-btn-icon">▶</span>
+        <span id="run-btn-text">Suche jetzt starten</span>
+      </button>
+      <button class="btn btn-ghost" onclick="loadData()">↺ Daten neu laden</button>
+    </div>
+
+    <div id="not-configured-hint" class="warn-box" style="display:none;">
+      <strong>⚙️ Fast fertig!</strong> Trage zuerst unter <em>Einstellungen</em>
+      deinen GitHub-Benutzernamen, Repository-Namen und PAT ein, damit der
+      "Suche starten"-Button funktioniert.
+    </div>
+
+    <div class="section-title">Letzte Suchlauf-Protokoll</div>
+    <div id="run-history">
+      <div class="empty-state"><div class="icon">📋</div><p>Noch kein Lauf durchgeführt</p></div>
+    </div>
+
+  </div>
+
+  <!-- ── Tab: Ergebnisse ──────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-results">
+
+    <div class="filter-row">
+      <input class="filter-input" id="filter-text" placeholder="🔎 Suche in Ergebnissen…" oninput="renderResults()">
+      <select class="filter-select" id="filter-site" onchange="renderResults()">
+        <option value="">Alle Websites</option>
+      </select>
+      <select class="filter-select" id="filter-new" onchange="renderResults()">
+        <option value="">Alle</option>
+        <option value="new">Nur Neue</option>
+      </select>
+    </div>
+
+    <div class="section-title">Gefundene Einträge</div>
+    <div id="results-list">
+      <div class="empty-state"><div class="icon">🔍</div><p>Lade Daten…</p></div>
+    </div>
+    <div id="results-count" style="font-size:.75rem;color:var(--muted);margin-top:12px;text-align:right;"></div>
+
+  </div>
+
+  <!-- ── Tab: Websites ─────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-sites">
+
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="openAddSite()">＋ Website hinzufügen</button>
+    </div>
+
+    <div class="section-title">Konfigurierte Websites</div>
+    <div id="sites-table-container">
+      <div class="empty-state"><div class="icon">🌐</div><p>Noch keine Websites konfiguriert</p></div>
+    </div>
+
+  </div>
+
+  <!-- ── Tab: Einstellungen ────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-settings">
+
+    <div class="settings-card">
+      <h3>🔑 GitHub-Zugang</h3>
+      <div class="form-row">
+        <label class="form-label">GitHub-Benutzername</label>
+        <div class="token-display">
+          <div class="token-value" id="disp-user">nicht gesetzt</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Repository-Name</label>
+        <div class="token-display">
+          <div class="token-value" id="disp-repo">nicht gesetzt</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Personal Access Token</label>
+        <div class="token-display">
+          <div class="token-value" id="disp-token">nicht gesetzt</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="openModal('token-modal'); prefillTokenModal()">✏️ Bearbeiten</button>
+      <button class="btn btn-danger-ghost" style="margin-left:8px;" onclick="clearToken()">🗑 Token löschen</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>📖 Kurzanleitung</h3>
+      <div class="info-box" style="margin-bottom:0;">
+        <strong>1. PAT erstellen:</strong> github.com → Profil-Bild → Settings →
+        Developer settings → Personal access tokens → Tokens (classic) → Generate new token.<br>
+        Haken setzen bei: <code>repo</code> → Token kopieren.<br><br>
+        <strong>2. Hier eintragen:</strong> Benutzername, Repo-Name und Token oben eingeben.<br><br>
+        <strong>3. Website hinzufügen:</strong> Tab "Websites" → "+ Website hinzufügen".<br><br>
+        <strong>4. Suche starten:</strong> Dashboard → "Suche jetzt starten".<br><br>
+        <strong>Automatisch:</strong> Die GitHub Action läuft alle 6 Stunden selbstständig.
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>🗄️ Daten</h3>
+      <div class="action-bar" style="margin-bottom:0;">
+        <button class="btn btn-ghost" onclick="clearResults()">🗑 Ergebnisse leeren</button>
+        <button class="btn btn-ghost" onclick="exportResults()">📥 Ergebnisse exportieren</button>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE & CONFIG
+// ═══════════════════════════════════════════════════════════════
+const LS = {
+  get: (k, d=null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del: (k)    => { try { localStorage.removeItem(k); } catch {} },
+};
+
+let CONFIG  = { user: '', repo: '', token: '' };
+let appData = { config: { sites: [] }, results: { last_run: '', runs: [], all_entries: [] } };
+let editSiteId = null;  // null = neu, sonst ID
+
+function loadSettings() {
+  const s = LS.get('wm_settings', {});
+  CONFIG.user  = s.user  || '';
+  CONFIG.repo  = s.repo  || '';
+  CONFIG.token = s.token || '';
+}
+
+function saveSettings() {
+  CONFIG.user  = document.getElementById('t-user').value.trim();
+  CONFIG.repo  = document.getElementById('t-repo').value.trim();
+  CONFIG.token = document.getElementById('t-token').value.trim();
+  LS.set('wm_settings', CONFIG);
+  closeModal('token-modal');
+  updateSettingsDisplay();
+  toast('Einstellungen gespeichert', 'success');
+  checkConfigured();
+}
+
+function updateSettingsDisplay() {
+  document.getElementById('disp-user').textContent  = CONFIG.user  || 'nicht gesetzt';
+  document.getElementById('disp-repo').textContent  = CONFIG.repo  || 'nicht gesetzt';
+  document.getElementById('disp-token').textContent =
+    CONFIG.token ? CONFIG.token.slice(0, 4) + '••••••••••••' + CONFIG.token.slice(-4) : 'nicht gesetzt';
+}
+
+function clearToken() {
+  if (!confirm('Token wirklich löschen?')) return;
+  CONFIG.token = '';
+  LS.set('wm_settings', CONFIG);
+  updateSettingsDisplay();
+  toast('Token gelöscht', 'info');
+}
+
+function prefillTokenModal() {
+  document.getElementById('t-user').value  = CONFIG.user;
+  document.getElementById('t-repo').value  = CONFIG.repo;
+  document.getElementById('t-token').value = CONFIG.token;
+}
+
+function checkConfigured() {
+  const ok = CONFIG.user && CONFIG.repo && CONFIG.token;
+  document.getElementById('not-configured-hint').style.display = ok ? 'none' : 'block';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GITHUB API
+// ═══════════════════════════════════════════════════════════════
+async function ghFetch(path, opts = {}) {
+  const headers = {
+    'Authorization': `token ${CONFIG.token}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+    ...opts.headers,
+  };
+  const res = await fetch(`https://api.github.com${path}`, { ...opts, headers });
+  return res;
+}
+
+// Datei aus dem Repo laden (JSON)
+async function ghGetFile(filename) {
+  const res = await ghFetch(`/repos/${CONFIG.user}/${CONFIG.repo}/contents/${filename}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const content = atob(data.content.replace(/\n/g, ''));
+  return { json: JSON.parse(content), sha: data.sha };
+}
+
+// Datei im Repo erstellen oder updaten
+async function ghPutFile(filename, content, message, sha = null) {
+  const body = {
+    message,
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2)))),
+  };
+  if (sha) body.sha = sha;
+  const res = await ghFetch(
+    `/repos/${CONFIG.user}/${CONFIG.repo}/contents/${filename}`,
+    { method: 'PUT', body: JSON.stringify(body) }
+  );
+  return res.ok;
+}
+
+// GitHub Action via Repository Dispatch triggern
+async function triggerScraper() {
+  if (!CONFIG.user || !CONFIG.repo || !CONFIG.token) {
+    openModal('token-modal');
+    toast('Bitte zuerst GitHub-Einstellungen setzen', 'error');
+    return;
+  }
+  const btn = document.getElementById('run-btn');
+  const icon = document.getElementById('run-btn-icon');
+  const text = document.getElementById('run-btn-text');
+
+  btn.classList.add('loading');
+  icon.outerHTML = '<span id="run-btn-icon"><span class="spinner"></span></span>';
+  document.getElementById('run-btn-text').textContent = 'Starte…';
+
+  try {
+    const res = await ghFetch(`/repos/${CONFIG.user}/${CONFIG.repo}/dispatches`, {
+      method: 'POST',
+      body: JSON.stringify({ event_type: 'run-scraper', client_payload: { source: 'web-ui' } }),
+    });
+    if (res.status === 204) {
+      toast('✅ Scraper gestartet! Ergebnisse in ~1-2 Min. verfügbar.', 'success');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(`Fehler: ${err.message || res.status}`, 'error');
+    }
+  } catch (e) {
+    toast(`Netzwerkfehler: ${e.message}`, 'error');
+  } finally {
+    btn.classList.remove('loading');
+    document.getElementById('run-btn-icon').outerHTML = '<span id="run-btn-icon">▶</span>';
+    document.getElementById('run-btn-text').textContent = 'Suche jetzt starten';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATEN LADEN
+// ═══════════════════════════════════════════════════════════════
+async function loadData() {
+  document.getElementById('header-status').textContent = 'Lädt…';
+
+  // Immer die rohen JSON-Dateien aus dem GitHub Pages Repo laden
+  // Da Pages die Dateien statisch ausliefert, können wir sie direkt fetchen
+  const baseUrl = window.location.href.replace(/\/[^/]*$/, '');
+
+  try {
+    const [cfgRes, resRes] = await Promise.all([
+      fetch(`${baseUrl}/config.json?t=${Date.now()}`),
+      fetch(`${baseUrl}/results.json?t=${Date.now()}`),
+    ]);
+
+    if (cfgRes.ok) {
+      appData.config = await cfgRes.json();
+    }
+    if (resRes.ok) {
+      appData.results = await resRes.json();
+    }
+  } catch (e) {
+    // Fallback: GitHub API nutzen wenn direkt geladen
+    if (CONFIG.token) {
+      const cfg = await ghGetFile('config.json');
+      const res = await ghGetFile('results.json');
+      if (cfg) appData.config  = cfg.json;
+      if (res) appData.results = res.json;
+    }
+  }
+
+  renderDashboard();
+  renderResults();
+  renderSites();
+
+  const lr = appData.results.last_run;
+  document.getElementById('header-status').textContent = lr
+    ? `Letzter Lauf: ${fmtDate(lr)}`
+    : 'Noch kein Lauf';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const runs   = appData.results.runs || [];
+  const all    = appData.results.all_entries || [];
+  const sites  = appData.config.sites || [];
+
+  const lastNew = runs.length ? runs[0].new_count : 0;
+
+  document.getElementById('stat-new').textContent   = lastNew;
+  document.getElementById('stat-total').textContent = all.length;
+  document.getElementById('stat-sites').textContent = sites.length;
+  document.getElementById('stat-runs').textContent  = runs.length;
+
+  const hist = document.getElementById('run-history');
+  if (!runs.length) {
+    hist.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>Noch kein Lauf durchgeführt</p></div>';
+    return;
+  }
+  hist.innerHTML = runs.slice(0, 10).map(r => `
+    <div class="run-item">
+      <span class="run-time">${fmtDate(r.timestamp)}</span>
+      <span>
+        <span style="color:var(--muted);font-size:.7rem;">${r.sites_checked} Sites</span>
+        &nbsp;&nbsp;
+        <span class="run-new">+${r.new_count} neu</span>
+      </span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ERGEBNISSE
+// ═══════════════════════════════════════════════════════════════
+function renderResults() {
+  const entries = appData.results.all_entries || [];
+  const sites   = appData.config.sites || [];
+
+  // Filter-Dropdown befüllen
+  const sel = document.getElementById('filter-site');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Alle Websites</option>' +
+    sites.map(s => `<option value="${esc(s.id)}">${esc(s.name || s.id)}</option>`).join('');
+  sel.value = cur;
+
+  const txt     = document.getElementById('filter-text').value.toLowerCase();
+  const siteF   = sel.value;
+  const newOnly = document.getElementById('filter-new').value === 'new';
+
+  let filtered = entries.filter(e => {
+    if (siteF   && e.site_id !== siteF) return false;
+    if (newOnly && !e.is_new)           return false;
+    if (txt && !(
+      (e.title || '').toLowerCase().includes(txt) ||
+      (e.url   || '').toLowerCase().includes(txt)
+    )) return false;
+    return true;
+  });
+
+  const list = document.getElementById('results-list');
+  document.getElementById('results-count').textContent =
+    `${filtered.length} von ${entries.length} Einträgen`;
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🔍</div>' +
+      (entries.length ? '<p>Keine Einträge für diesen Filter</p>' : '<p>Noch keine Ergebnisse. Suche starten!</p>') +
+      '</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => `
+    <div class="result-item${e.is_new ? ' is-new' : ''}">
+      <div>
+        <div class="result-title">
+          ${e.is_new ? '<span class="tag-new">NEU</span> ' : ''}
+          <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title || e.url)}</a>
+        </div>
+        <div class="result-meta">
+          <span>📌 ${esc(e.site_name || e.site_id || '?')}</span>
+          <span>🕐 ${fmtDate(e.found_at)}</span>
+          ${e.post_count ? `<span>💬 ${e.post_count} Posts</span>` : ''}
+        </div>
+      </div>
+      <div class="result-actions">
+        <a href="${esc(e.url)}" target="_blank" rel="noopener">
+          <button class="btn btn-success-ghost">↗ Öffnen</button>
+        </a>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEBSITES
+// ═══════════════════════════════════════════════════════════════
+function renderSites() {
+  const sites = appData.config.sites || [];
+  const cont  = document.getElementById('sites-table-container');
+
+  if (!sites.length) {
+    cont.innerHTML = '<div class="empty-state"><div class="icon">🌐</div><p>Noch keine Websites konfiguriert.<br>Klicke "+ Website hinzufügen".</p></div>';
+    return;
+  }
+
+  cont.innerHTML = `
+    <div class="sites-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Name</th>
+          <th>Typ</th>
+          <th>URL</th>
+          <th>Tags</th>
+          <th>Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sites.map(s => `
+          <tr>
+            <td><span class="active-dot ${s.active !== false ? 'on' : 'off'}"></span>${s.active !== false ? 'Aktiv' : 'Inaktiv'}</td>
+            <td>${esc(s.name || '–')}</td>
+            <td><span class="type-badge type-${s.type}">Typ ${s.type}</span></td>
+            <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              <a href="${esc(s.url)}" target="_blank" rel="noopener" style="color:var(--accent);font-family:var(--mono);font-size:.72rem;">${esc(s.url)}</a>
+            </td>
+            <td style="color:var(--muted);font-size:.78rem;">${esc(s.tags || '–')}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-ghost" style="padding:5px 10px;font-size:.75rem;" onclick="openEditSite('${esc(s.id)}')">✏️</button>
+              <button class="btn btn-danger-ghost" style="margin-left:4px;" onclick="deleteSite('${esc(s.id)}')">🗑</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
+function openAddSite() {
+  editSiteId = null;
+  document.getElementById('site-modal-title').textContent = 'Website hinzufügen';
+  document.getElementById('s-name').value     = '';
+  document.getElementById('s-url').value      = '';
+  document.getElementById('s-pattern').value  = '';
+  document.getElementById('s-tags').value     = '';
+  document.getElementById('s-selectors').value= '';
+  document.getElementById('s-max').value      = '50';
+  document.getElementById('s-active').checked = true;
+  document.getElementById('s-type').value     = '1';
+  updateTypeHelp();
+  openModal('site-modal');
+}
+
+function openEditSite(id) {
+  const site = (appData.config.sites || []).find(s => s.id === id);
+  if (!site) return;
+  editSiteId = id;
+  document.getElementById('site-modal-title').textContent = 'Website bearbeiten';
+  document.getElementById('s-name').value      = site.name     || '';
+  document.getElementById('s-url').value       = site.url      || '';
+  document.getElementById('s-pattern').value   = site.pattern  || '';
+  document.getElementById('s-tags').value      = site.tags     || '';
+  document.getElementById('s-selectors').value = site.post_selectors || '';
+  document.getElementById('s-max').value       = site.max_results || 50;
+  document.getElementById('s-active').checked  = site.active !== false;
+  document.getElementById('s-type').value      = String(site.type || 1);
+  updateTypeHelp();
+  openModal('site-modal');
+}
+
+function updateTypeHelp() {
+  const t = document.getElementById('s-type').value;
+  const helpEl = document.getElementById('type-help');
+  const selRow = document.getElementById('s-selectors-row');
+  const patLbl = document.getElementById('s-pattern-label');
+  const patHint= document.getElementById('s-pattern-hint');
+  if (t === '1') {
+    helpEl.innerHTML = '<strong>Typ 1:</strong> Gib die Übersichts-URL an (z. B. Forum-Startseite, Tag-Seite). Der Scraper findet alle Links und filtert nach Muster + Tags.';
+    patLbl.textContent  = 'URL-Muster / Schlüsselwort';
+    patHint.textContent = 'Nur Links, die dieses Wort im Pfad enthalten';
+    selRow.style.display = 'none';
+  } else {
+    helpEl.innerHTML = '<strong>Typ 2:</strong> Gib die direkte Thread-URL an. Der Scraper zählt Posts und meldet neue seit dem letzten Lauf.';
+    patLbl.textContent  = 'Suchbegriff (optional, für Titel-Filter)';
+    patHint.textContent = 'Leer lassen um den gesamten Thread zu überwachen';
+    selRow.style.display = 'block';
+  }
+}
+
+async function saveSite() {
+  if (!CONFIG.token) { openModal('token-modal'); toast('PAT benötigt', 'error'); return; }
+
+  const name    = document.getElementById('s-name').value.trim();
+  const url     = document.getElementById('s-url').value.trim();
+  const pattern = document.getElementById('s-pattern').value.trim();
+  const tags    = document.getElementById('s-tags').value.trim();
+  const sels    = document.getElementById('s-selectors').value.trim();
+  const max     = parseInt(document.getElementById('s-max').value) || 50;
+  const active  = document.getElementById('s-active').checked;
+  const type    = parseInt(document.getElementById('s-type').value);
+
+  if (!name) { toast('Bitte einen Namen eingeben', 'error'); return; }
+  if (!url)  { toast('Bitte eine URL eingeben', 'error'); return; }
+  if (!url.startsWith('http')) { toast('URL muss mit https:// beginnen', 'error'); return; }
+
+  const sites = [...(appData.config.sites || [])];
+  const site  = {
+    id: editSiteId || `site_${Date.now()}`,
+    name, url, pattern, tags, type, max_results: max, active,
+  };
+  if (type === 2 && sels) site.post_selectors = sels;
+
+  if (editSiteId) {
+    const idx = sites.findIndex(s => s.id === editSiteId);
+    if (idx > -1) sites[idx] = site; else sites.push(site);
+  } else {
+    sites.push(site);
+  }
+
+  const newConfig = { ...appData.config, sites };
+  const ok = await commitConfig(newConfig);
+  if (ok) {
+    appData.config = newConfig;
+    closeModal('site-modal');
+    renderSites();
+    renderResults();
+    renderDashboard();
+    toast(`Website "${name}" gespeichert ✅`, 'success');
+  }
+}
+
+async function deleteSite(id) {
+  const site  = (appData.config.sites || []).find(s => s.id === id);
+  if (!site) return;
+  if (!confirm(`"${site.name}" wirklich löschen?`)) return;
+  if (!CONFIG.token) { openModal('token-modal'); return; }
+
+  const sites    = (appData.config.sites || []).filter(s => s.id !== id);
+  const newConfig = { ...appData.config, sites };
+  const ok = await commitConfig(newConfig);
+  if (ok) {
+    appData.config = newConfig;
+    renderSites();
+    renderResults();
+    renderDashboard();
+    toast('Website gelöscht', 'info');
+  }
+}
+
+async function commitConfig(newConfig) {
+  toast('Speichere…', 'info');
+  try {
+    const existing = await ghGetFile('config.json');
+    const ok = await ghPutFile(
+      'config.json',
+      newConfig,
+      '⚙️ config.json via Web-UI aktualisiert',
+      existing ? existing.sha : null,
+    );
+    if (!ok) { toast('Fehler beim Speichern – Token korrekt?', 'error'); return false; }
+    return true;
+  } catch (e) {
+    toast(`Fehler: ${e.message}`, 'error');
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXTRAS
+// ═══════════════════════════════════════════════════════════════
+async function clearResults() {
+  if (!CONFIG.token) { openModal('token-modal'); return; }
+  if (!confirm('Alle Ergebnisse wirklich löschen?')) return;
+  const empty = { last_run: '', runs: [], all_entries: [] };
+  const existing = await ghGetFile('results.json');
+  const ok = await ghPutFile('results.json', empty, '🗑 results.json geleert', existing?.sha);
+  if (ok) {
+    appData.results = empty;
+    renderDashboard();
+    renderResults();
+    toast('Ergebnisse geleert', 'info');
+  }
+}
+
+function exportResults() {
+  const data = JSON.stringify(appData.results, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `web-monitor-export-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    const tabs = ['dashboard','results','sites','settings'];
+    b.classList.toggle('active', tabs[i] === id);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `tab-${id}`);
+  });
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .4s'; setTimeout(() => t.remove(), 400); }, 3500);
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '–';
+  try {
+    return new Date(iso).toLocaleString('de-DE', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return iso; }
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+(async function init() {
+  loadSettings();
+  updateSettingsDisplay();
+  checkConfigured();
+  await loadData();
+})();
+</script>
+</body>
+</html>
