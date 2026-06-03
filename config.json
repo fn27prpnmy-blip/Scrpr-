@@ -1,0 +1,14 @@
+{
+  "sites": [
+    {
+      "id": "site_1780469978839",
+      "name": "nobodyhome – lori_juce Erwähnungen",
+      "url": "https://nobodyhome.ws/search.php?action=do_search&keywords=lori_juce&postthread=1",
+      "pattern": "post-",
+      "tags": "",
+      "type": 1,
+      "max_results": 50,
+      "active": true
+    }
+  ]
+}
